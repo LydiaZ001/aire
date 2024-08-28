@@ -1,32 +1,36 @@
-# This is a sample Python script.
-
-# Press ⌃R to execute it or replace it with your code.
-# Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
-
+"""
+title: MLX Pipeline
+author: justinh-rahb
+date: 2024-05-27
+version: 1.1
+license: MIT
+description: A pipeline for generating text using Apple MLX Framework.
+requirements: requests, mlx-lm, huggingface-hub
+environment_variables: MLX_HOST, MLX_PORT, MLX_MODEL, MLX_STOP, MLX_SUBPROCESS, HUGGINGFACE_TOKEN
+"""
 import tweepy
 #M744QevSvcx*NK)
-
-from datetime import datetime
-
-
-
 import requests
 import json
-# calling local api
-
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
-
-
 from typing import List, Union, Generator, Iterator
 from pydantic import BaseModel
 from schemas import OpenAIChatMessage
+from blueprints.function_calling_blueprint import Pipeline as FunctionCallingBlueprint
 import requests
 import os
 
 
 class Pipeline:
     class Valves(BaseModel):
+        # List target pipeline ids (models) that this filter will be connected to.
+        # If you want to connect this filter to all pipelines, you can set pipelines to ["*"]
+        pipelines: List[str] = ["*"]
+
+        # Assign a priority level to the filter pipeline.
+        # The priority level determines the order in which the filter pipelines are executed.
+        # The lower the number, the higher the priority.
+        priority: int = 0
+
         pass
 
     def __init__(self):
@@ -34,8 +38,10 @@ class Pipeline:
         # Best practice is to not specify the id so that it can be automatically inferred from the filename, so that users can install multiple versions of the same pipeline.
         # The identifier must be unique across all pipelines.
         # The identifier must be an alphanumeric string that can include underscores or hyphens. It cannot contain spaces, special characters, slashes, or backslashes.
-        # self.id = "wiki_pipeline"
-        self.name = "ChatBot Pipeline"
+        #self.id = "chatbot_pipeline"
+
+        self.name = "Chatbot Pipeline"
+        self.valves = self.Valves(**{"pipelines": ["*"]})
 
         # Initialize rate limits
         self.valves = self.Valves(**{"OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", "")})
@@ -61,6 +67,7 @@ class Pipeline:
             return "ChatBot Pipeline"
         else:
             titles = []
+            data = ''
             for query in [user_message]:
                 # query = query.replace(" ", "_")
 
@@ -70,47 +77,33 @@ class Pipeline:
                 #
                 data = '{"model":"llama3.1", "prompt":' + '"' + query + ' answer within 30 words"}'
 
+            response = requests.post(url, data=data)
+            text = response.text
+            jsonArray = text.split('\n')
+            print(jsonArray)
 
-                response = requests.post(url, data=data)
-                text = response.text
-                jsonArray = text.split('\n')
-                # print(jsonArray)
-
-                tweetText = '@lingge_zha89860 AI Republic said: '
-                index = 0
+            tweetText = '@lingge_zha89860 AI Republic said: '
+            index = 0
+            done = json.loads(jsonArray[index])['done']
+            while (not done):
+                jsonString = json.loads(jsonArray[index])
+                tweetText = tweetText + jsonString['response']
+                index = index + 1
                 done = json.loads(jsonArray[index])['done']
-                while (not done):
-                    jsonString = json.loads(jsonArray[index])
-                    tweetText = tweetText + jsonString['response']
-                    index = index + 1
-                    done = json.loads(jsonArray[index])['done']
-                # print(tweetText)
-                # please to replace your own key and secret
-                consumer_key = "MbBqct3zSUirSPWTYIrQYIaCQ"
-                consumer_secret = "brD2LHMw6ZiNZbw72WpefOE7jLcSaXnnvZoCCP4nRZTDRPoaCL"
-                access_token = "1826756195446906880-3CRcaI3Vq4jJJdVa3itSsTXd1i3hYT"
-                access_token_secret = "aLKcMuQLGHs1AxAlS0c3Gkjm30pxfrPl0td9FyITOyIIN"
+            # print(tweetText)
+            # please to replace your own key and secret
+            consumer_key = "MbBqct3zSUirSPWTYIrQYIaCQ"
+            consumer_secret = "brD2LHMw6ZiNZbw72WpefOE7jLcSaXnnvZoCCP4nRZTDRPoaCL"
+            access_token = "1826756195446906880-3CRcaI3Vq4jJJdVa3itSsTXd1i3hYT"
+            access_token_secret = "aLKcMuQLGHs1AxAlS0c3Gkjm30pxfrPl0td9FyITOyIIN"
 
-                client = tweepy.Client(
-                    bearer_token="AAAAAAAAAAAAAAAAAAAAAIAEvgEAAAAAC6nCWxVHn4s6%2FMtR%2B7jw%2FCZAjhI%3DCGkh8Kpbee0wOxU2bTUh8SWaog07TeeLHJ9wareyHYIHRCFqJf",
-                    consumer_key=consumer_key, consumer_secret=consumer_secret,
-                    access_token=access_token, access_token_secret=access_token_secret
-                )
+            client = tweepy.Client(
+                bearer_token="AAAAAAAAAAAAAAAAAAAAAIAEvgEAAAAAC6nCWxVHn4s6%2FMtR%2B7jw%2FCZAjhI%3DCGkh8Kpbee0wOxU2bTUh8SWaog07TeeLHJ9wareyHYIHRCFqJf",
+                consumer_key=consumer_key, consumer_secret=consumer_secret,
+                access_token=access_token, access_token_secret=access_token_secret
+            )
 
-                client.create_tweet(text=tweetText)
+            client.create_tweet(text=tweetText)
 
-            # context = None
-            # if len(titles) > 0:
-            #     r = requests.get(
-            #         f"https://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&exintro&explaintext&redirects=1&titles={'|'.join(titles)}"
-            #     )
-            #     response = r.json()
-            #     # get extracts
-            #     pages = response["query"]["pages"]
-            #     for page in pages:
-            #         if context == None:
-            #             context = pages[page]["extract"] + "\n"
-            #         else:
-            #             context = context + pages[page]["extract"] + "\n"
-            #
-            # return context if context else "No information found"
+
+            return (tweetText+"tweetText") if tweetText else "No information found"
